@@ -1,0 +1,104 @@
+import os
+import random
+import csv
+import urllib.request
+import zipfile
+import statistics
+
+# Function to fetch the ZIP file from the web
+def download_data_zip():
+    url = "https://github.com/shruthi0203/Tech-challenge/raw/main/TC1%28TC2%29%20stock_price_data_files.zip"
+    zip_filename = "stock_price_data.zip"
+    
+    try:
+        urllib.request.urlretrieve(url, zip_filename)
+        print(f"Downloaded {zip_filename} successfully.")
+    except Exception as e:
+        print(f"Error during download: {e}")
+        raise
+
+# Function to extract all files from the downloaded ZIP file
+def extract_zip_file():
+    zip_filename = "stock_price_data.zip"
+    extract_to_folder = "data_files"
+    
+    try:
+        with zipfile.ZipFile(zip_filename, 'r') as zip_ref:
+            zip_ref.extractall(extract_to_folder)
+        print(f"Files extracted to {extract_to_folder}")
+    except Exception as e:
+        print(f"Error during extraction: {e}")
+        raise
+
+# Retrieve a random 30 data points from a CSV file
+def get_random_data_points(file_path):
+    with open(file_path, newline='', encoding='utf-8') as file:
+        reader = csv.reader(file)
+        rows = list(reader)
+    
+    if len(rows) < 30:
+        raise ValueError("File doesn't contain enough data points.")
+    
+    start_index = random.randint(0, len(rows) - 30)
+    return rows[start_index:start_index + 30]
+
+# Function to detect outliers based on statistical analysis
+def detect_outliers(data):
+    stock_id = data[0][0]
+    prices = [float(row[2]) for row in data]
+    
+    mean_price = statistics.mean(prices)
+    stdev_price = statistics.stdev(prices)
+    
+    threshold = 2 * stdev_price
+    outliers = []
+
+    for row in data:
+        timestamp = row[1]
+        price = float(row[2])
+        deviation = price - mean_price
+        deviation_percent = (deviation / mean_price) * 100
+        
+        if abs(deviation) > threshold:
+            outliers.append({
+                'Stock-ID': stock_id,
+                'Timestamp': timestamp,
+                'Stock Price': price,
+                'Mean Price': mean_price,
+                'Price Deviation': deviation,
+                'Deviation Percentage': deviation_percent
+            })
+    
+    return outliers
+
+# Function to process each CSV file and save outliers
+def process_file(file_path):
+    data_points = get_random_data_points(file_path)
+    outliers = detect_outliers(data_points)
+
+    if outliers:
+        output_file = file_path.replace('.csv', '_outliers.csv')
+        with open(output_file, mode='w', newline='', encoding='utf-8') as out_file:
+            writer = csv.DictWriter(out_file, fieldnames=outliers[0].keys())
+            writer.writeheader()
+            writer.writerows(outliers)
+        print(f"Outliers written to {output_file}")
+    else:
+        print(f"No outliers detected in {file_path}")
+
+# Main function to execute the entire flow
+def run_program():
+    download_data_zip()
+    extract_zip_file()
+
+    data_folder = "data_files"
+    
+    for file_name in os.listdir(data_folder):
+        file_path = os.path.join(data_folder, file_name)
+
+        if file_path.endswith(".csv"):
+            print(f"Processing {file_name}")
+            process_file(file_path)
+
+if __name__ == "__main__":
+    run_program()
